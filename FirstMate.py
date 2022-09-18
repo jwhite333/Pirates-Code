@@ -1,46 +1,12 @@
+from distutils.log import debug
 from random import choice as random_choice
 from time import time
-# 
-
-# def drawCard(north, east, south, west):
-
-# 	top = [' ', ' ', ' ', ' ', ' ', ' ', ' ']
-# 	middle = [' ', ' ', ' ', ' ', ' ', ' ', ' ']
-# 	bottom = [' ', ' ', ' ', ' ', ' ', ' ', ' ']
-
-# 	if north:
-# 		top[3] = u'\u25b2'
-# 	if east:
-# 		middle[5] = u'\u25b6'
-# 	if south:
-# 		bottom[3] = u'\u25bc'
-# 	if west:
-# 		middle[0] = u'\u25c0'
-
-# 	print(u'\u250f' + u'\u2501' + u'\u2501' + u'\u2501' + u'\u2501' + u'\u2501' + u'\u2501' + u'\u2501' + u'\u2513')
-# 	print(u'\u2503' + "".join(top) + u'\u2503')
-# 	print(u'\u2503' + "".join(middle) + u'\u2503')
-# 	print(u'\u2503' + "".join(bottom) + u'\u2503')
-# 	print(u'\u2517' + u'\u2501' + u'\u2501' + u'\u2501' + u'\u2501' + u'\u2501' + u'\u2501' + u'\u2501' + u'\u251b')
-
-
-# # Single
-# single_1 = u'\u2515'
-
-# # Triple
-# triple_1 = u'\u253b'
-
-# # Quad
-# quad = u'\u254b'
-
-# drawCard(north=True, east=True, south=True, west=True)
-# print(single_1)
-# print(quad)
-# print(triple_1)
 from cmath import inf
 from copy import deepcopy
 
 debugPrint = False
+debugCounter = 0
+debugMode = False
 
 class TileType:
 
@@ -52,13 +18,17 @@ class TileType:
 
 class TileDeck:
 
-	def __init__(self) -> None:
+	def __init__(self, debugMode = False) -> None:
+		self.debugMode = debugMode
 		self.tiles = []
 		self.tiles.extend([TileType.DeadEnd for _ in range(3)])
 		self.tiles.extend([TileType.Corner for _ in range(4)])
 		self.tiles.extend([TileType.Hallway for _ in range(1)])
 		self.tiles.extend([TileType.Triple for _ in range(8)])
 		self.tiles.extend([TileType.Quad for _ in range(4)])
+
+		# Return this if we're in debug mode
+		self.debugTiles = [TileType.DeadEnd, TileType.DeadEnd, TileType.DeadEnd, TileType.Quad]
 
 	def GetPossibleTilesTypes(self):
 		types = []
@@ -76,13 +46,16 @@ class TileDeck:
 			raise
 
 	def Empty(self):
-		return len(self.tiles) == 0
+		if self.debugMode:
+			return len(self.debugTiles)
+		else:
+			return len(self.tiles) == 0
 
 	def GetRandomTile(self):
-		return random_choice(self.tiles)
-		# tile = random_choice(self.tiles)
-		# self.PopTile(tile)
-		# return tile
+		if self.debugMode:
+			return self.debugTiles.pop(0)
+		else:
+			return random_choice(self.tiles)
 
 class Ship:
 
@@ -211,7 +184,6 @@ class Ship:
 			playableLocationsString += (str(location) + " ")
 		if debugPrint:logFile.write("Playable locations are " + playableLocationsString + "\n")
 		return playable
-		# return self.GetPlayableFromAvailableLocations(self.GetAvailableShipLocations(), tile)
 
 	def GetAvailableShipLocations(self):
 		availableLocations = []
@@ -262,7 +234,6 @@ class Ship:
 
 	def GetPlayableFromAvailableLocations(self, availableLocations, tile):
 		allowedLocations = []
-		# print("Available:", availableLocations)
 		for location in availableLocations:
 			allowed = True
 			y = location[0] - 2
@@ -297,7 +268,7 @@ class Ship:
 			if distance > maxDistance:
 				maxDistance = distance
 			visited.append((y, x))
-			if y - 1 > 0 and self.ship[y][x] & self.North == self.North and self.ship[y - 1][x] & self.South == self.South:
+			if y - 1 >= 0 and self.ship[y][x] & self.North == self.North and self.ship[y - 1][x] & self.South == self.South:
 				if (y - 1, x) not in visited:
 					queue.append((y - 1, x, distance + 1))
 			if x + 1 < len(self.ship[0]) and self.ship[y][x] & self.East == self.East and self.ship[y][x + 1] & self.West == self.West:
@@ -306,7 +277,7 @@ class Ship:
 			if y + 1 < len(self.ship) and self.ship[y][x] & self.South == self.South and self.ship[y + 1][x] & self.North == self.North:
 				if (y + 1, x) not in visited:
 					queue.append((y + 1, x, distance + 1))
-			if x - 1 > 0 and self.ship[y][x] & self.West == self.West and self.ship[y][x - 1] & self.East == self.East:
+			if x - 1 >= 0 and self.ship[y][x] & self.West == self.West and self.ship[y][x - 1] & self.East == self.East:
 				if (y, x - 1) not in visited:
 					queue.append((y, x - 1, distance + 1))
 		return maxDistance
@@ -332,9 +303,7 @@ class State:
 		self.children = []
 		self.type = type
 		self.parent = parent
-		# self.value = None
 		self.move = move
-		# self.hash = hash(self.ship)
 
 	def GetChildren(self, tileTypes = None):
 		if self.type != StateType.Node:
@@ -350,12 +319,13 @@ class State:
 			logFile.write(f"Existing children: {len(self.children)}\n")
 		self.ship.Print()
 		for possibleTileType in tileTypes:
+			placable = False
 			for tile in self.ship.GetPossibleTileOrientations(self.ship.ConvertTileTypeToTile(possibleTileType)):
 				for location in self.ship.GetPlayableLocationsForTile(tile):
+					placable = True
 					if debugPrint:
 						logFile.write("Adding location " + str(location) + "\n")
 					newShip = self.ship.Duplicate()
-					# newShip = deepcopy(self.ship)
 					newShip.PlaceTile(tile, location[0], location[1])
 					if debugPrint:
 						logFile.write("Creating new ship that looks like\n")
@@ -364,11 +334,13 @@ class State:
 					newTileDeck.PopTile(possibleTileType)
 					newType = StateType.Win if newTileDeck.Empty() else StateType.Node
 					self.children.append(State(newShip, newTileDeck, newType, self, Move(tile, location[0], location[1])))
+			if not placable:
+				newState = deepcopy(self)
+				newState.type = StateType.Loss
+				self.children.append(newState)
 		return self.children
 
 	def ComputeStateValue(self):
-
-		# Number of tile types that can be played
 		remainingTileTypes = self.tileDeck.GetPossibleTilesTypes()
 		if len(remainingTileTypes):
 			remainingPlacableTileTypes = 0
@@ -382,73 +354,18 @@ class State:
 						break
 				if placable:
 					remainingPlacableTileTypes += 1
-			playableTilesMultiplier = float(remainingPlacableTileTypes) / float(len(remainingTileTypes))
-		else:
-			playableTilesMultiplier = 1.0
-		# print("Playable tile type multiplier", playableTilesMultiplier)
-
-		# Number of spaces available for tiles
-		availableLocations = len(self.ship.GetAvailableShipLocations())
-		# print("Available locations", availableLocations)
-
-		# Average tile distance from the rowboat
-		totalDistance = 0
-		tileCount = 0
-		for h in range(len(self.ship.ship)):
-			for w in range(len(self.ship.ship[h])):
-				if self.ship.ship[h][w] != 0:
-					tileCount += 1
-					totalDistance += (abs(h - 0) + abs(w - 1))
-		averageRowboatDistance = (float(totalDistance) / (float(tileCount) - 1)) + 1.0
-		# print("Average distance to rowboat", averageRowboatDistance)
-
-		# Bottlenecks?
-
-		# Number of tiles left
-		tilesLeft = len(self.tileDeck.tiles)
-		# print("Tiles left", tilesLeft)
-
-		# 
-		return ((20 - tilesLeft) * availableLocations * playableTilesMultiplier) - averageRowboatDistance * 2.0
-
-	def ComputeStateValue2(self):
-		# Vastly increase prio of this
-		# Number of tile types that can be played
-		remainingTileTypes = self.tileDeck.GetPossibleTilesTypes()
-		if len(remainingTileTypes):
-			remainingPlacableTileTypes = 0
-			for possibleTileType in remainingTileTypes:
-				placable = False
-				for tile in self.ship.GetPossibleTileOrientations(self.ship.ConvertTileTypeToTile(possibleTileType)):
-					for _ in self.ship.GetPlayableLocationsForTile(tile):
-						placable = True
-						break
-					if placable:
-						break
-				if placable:
-					remainingPlacableTileTypes += 1
+				else:
+					pass
+					# print(f"  Cannot place tileType {possibleTileType}")
 			playableTilesMultiplier = (float(remainingPlacableTileTypes) / float(len(remainingTileTypes))) ** 3
 		else:
 			playableTilesMultiplier = 1.0
-		# print("Playable tile type multiplier", playableTilesMultiplier)
 
 		# Number of spaces available for tiles
 		availableLocations = len(self.ship.GetAvailableShipLocations())
-		# print("Available locations", availableLocations)
 
-		# Average tile distance from the rowboat
-		# Increase value
-		# totalDistance = 0
-		# tileCount = 0
-		# for h in range(len(self.ship.ship)):
-		# 	for w in range(len(self.ship.ship[h])):
-		# 		if self.ship.ship[h][w] != 0:
-		# 			tileCount += 1
-		# 			totalDistance += (abs(h - 0) + abs(w - 1))
-		# averageRowboatDistance = (float(totalDistance) / (float(tileCount) - 1)) + 1.0
-		# shipArea = len(self.ship.ship) * len(self.ship.ship[0])
+		# How walkable is the ship?
 		wavefrontDistance = self.ship.GetMaxDistanceWavefront()
-		# print("Average distance to rowboat", averageRowboatDistance)
 		
 		# Empty tiles
 		emptyTiles = 0
@@ -457,72 +374,20 @@ class State:
 				if w == 0:
 					emptyTiles += 1
 
-		# Bottlenecks?
-
 		# Number of tiles left
 		tilesLeft = len(self.tileDeck.tiles)
-		# print("Tiles left", tilesLeft)
 
-		# 
-		return ((20 - tilesLeft) * availableLocations * playableTilesMultiplier) - ((wavefrontDistance + emptyTiles) ** 2)
+		# Collective value
+		return ((20 - tilesLeft) * availableLocations * playableTilesMultiplier) - ((wavefrontDistance + emptyTiles / 4) ** 2)
+		
+		# value = ((1000 - tilesLeft) * playableTilesMultiplier) # - ((wavefrontDistance + (emptyTiles)) * 2)
+		
+		# print(f"State Value Calculation: (1000 - {tilesLeft}) * {playableTilesMultiplier}", end="")
+		return value
 
-	# def EstimateStateValue(self, depth):
-
-	def GetPath(self):
-		path = [deepcopy(self.move)]
-		parent = self.parent
-		while parent is not None:
-			if parent.move is None:
-				break
-			path.append(deepcopy(parent.move))
-			parent = parent.parent
-		return path
-
-debugCounter = 0
-def AStar2(state, tileType, currentBestValue, currentBestMove, depth, maxDepth = 3):
+def AStarDepth2(state, tileType):
 	global debugCounter
 
-	# print(f"Running A*2 on tileType {tileType} with depth =", depth)
-	if debugPrint:
-		logFile.write(f"Running A*2 on tileType {tileType} with depth = {depth}\n")
-	state.ship.Print()
-	tileTypes = [tileType] if depth == 0 else None
-	if depth == maxDepth or len(state.tileDeck.tiles) == 0:
-		# print("Max depth search")
-		if debugPrint:
-			logFile.write("Max depth search\n")
-		pathString = ""
-		for entry in state.GetPath():
-			pathString += f"--> {entry.tile} ({entry.y}, {entry.x}) "
-		# print(f"Path: {pathString} Value: {state.ComputeStateValue()}")
-		if debugPrint:
-			logFile.write(f"Path: {pathString} Value: {state.ComputeStateValue()}\n")
-		debugCounter += 1
-		return (state.move, state.ComputeStateValue())
-	else:
-		# print("Non-max depth search")
-		if debugPrint:
-			logFile.write("Non-max depth search\n")
-		childStates = []
-		childStates = state.GetChildren(tileTypes)
-		logFile.flush()
-		logFile.flush()
-		for childState in childStates:
-			# print("Child")
-			if debugPrint:
-				logFile.write(f"Child ({childState.move.y}, {childState.move.x})\n")
-			childState.ship.Print()
-			path, value = AStar2(childState, None, currentBestValue, currentBestMove, depth + 1, maxDepth)
-			value = (1.0 / len(childStates)) * value
-			if value > currentBestValue:
-				currentBestValue = value
-				currentBestMove = childState.move
-		return (currentBestMove, currentBestValue)
-
-def AStar3(state, tileType):
-	global debugCounter
-
-	# print(f"Running A*2 on tileType {tileType} with depth =", depth)
 	if debugPrint:
 		logFile.write(f"Running A*3 on tileType {tileType}\n")
 	state.ship.Print()
@@ -532,45 +397,30 @@ def AStar3(state, tileType):
 	childStates  = state.GetChildren([tileType])
 	for childState in childStates:
 
+		# print("Checking child state")
+		# childState.ship.Print(stdout=True)
 		grandchildrenValue = 0
 		grandchildrenStates = childState.GetChildren(None)
-		for grandchildState in grandchildrenStates:
+		if childState.type == StateType.Win:
+			childValue = 1000
+		if childState.type == StateType.Loss:
+			childValue = -1000
+		else:
+			for grandchildState in grandchildrenStates:
 
-			greatGrandchildrenValue = 0
-			greatGrandchildStates = grandchildState.GetChildren(None)
-			for greatGrandchildState in greatGrandchildStates:
+				# print("Checking grandchild state")
+				# grandchildState.ship.Print(stdout=True)
+				if grandchildState.type == StateType.Win:
+					greatGrandchildValue = 1000
+				if grandchildState.type == StateType.Loss:
+					greatGrandchildValue = -1000
+				else:
+					greatGrandchildValue = (1.0 / len(grandchildrenStates)) * grandchildState.ComputeStateValue()
+				grandchildrenValue += greatGrandchildValue # (1.0 / len(grandchildrenStates)) * grandchildState.ComputeStateValue()
+				# print(f" * 1 / {len(grandchildrenStates)} = {greatGrandchildValue}")
 
-				greatGrandchildrenValue += (1.0 / len(greatGrandchildStates)) * greatGrandchildState.ComputeStateValue()
-			
-			grandchildrenValue += (1.0 / len(grandchildrenStates)) * greatGrandchildrenValue
-
-		childValue = (1.0 / len(childStates)) * grandchildrenValue
-		if childValue > bestChildValue:
-			bestChildValue = childValue
-			bestMove = childState.move
-
-	return (bestMove, bestChildValue)
-
-def AStar4(state, tileType):
-	global debugCounter
-
-	# print(f"Running A*2 on tileType {tileType} with depth =", depth)
-	if debugPrint:
-		logFile.write(f"Running A*3 on tileType {tileType}\n")
-	state.ship.Print()
-
-	bestChildValue = -inf
-	bestMove = None
-	childStates  = state.GetChildren([tileType])
-	for childState in childStates:
-
-		grandchildrenValue = 0
-		grandchildrenStates = childState.GetChildren(None)
-		for grandchildState in grandchildrenStates:
-
-			grandchildrenValue += (1.0 / len(grandchildrenStates)) * grandchildState.ComputeStateValue2()
-
-		childValue = (1.0 / len(childStates)) * grandchildrenValue
+			childValue = (1.0 / len(childStates)) * grandchildrenValue
+		# print(f"Child Value = 1 / {len(childStates)} * {grandchildrenValue} = {childValue}")
 		if childValue > bestChildValue:
 			bestChildValue = childValue
 			bestMove = childState.move
@@ -579,44 +429,27 @@ def AStar4(state, tileType):
 
 
 # ship = Ship()
-
-# ship.PlaceTile(15, 2, 2)
-# ship.PlaceTile(15, 2, 1)
-# ship.PlaceTile(15, 2, 3)
+# ship.PlaceTile(4, 1, 0)
+# ship.PlaceTile(1, 1, 5)
 # ship.Print(stdout=True)
-# print(ship.GetMaxDistanceWavefront())
-
-# ship.PlaceTile(15, 3, 2)
-# ship.Print(stdout=True)
-# print(ship.GetMaxDistanceWavefront())
-
-# ship.PlaceTile(15, 4, 2)
-# ship.Print(stdout=True)
-# print(ship.GetMaxDistanceWavefront())
-
-# ship.PlaceTile(15, 5, 2)
-# ship.PlaceTile(15, 4, 3)
-# ship.Print(stdout=True)
-# print(ship.GetMaxDistanceWavefront())
+# tileDeck = TileDeck(debugMode=False)
+# state = State(ship, tileDeck, StateType.Node, None, None)
+# move, cost = AStarDepth2(state, tileType=TileType.DeadEnd)
+# print(f"Best move {move.tile} at ({move.y}, {move.x})")
+# state.ship.PlaceTile(move.tile, move.y, move.x)
+# state.ship.Print(stdout=True)
 # exit(0)
 
 
 with open("C:\\Users\\jonny\\OneDrive\\Documents\\PiratesCode.log", 'w+') as logFile:
 
-	# debugTileOrder = [TileType.Quad, TileType.Corner]
-	# debugTileOrder = [TileType.Quad, TileType.Quad]
-	# debugTileOrder = [TileType.Quad]
-	# debugTileOrder = [TileType.Corner]
-	# debugTileOrder = [TileType.DeadEnd, TileType.Quad]
 
-	if 'debugTileOrder' in locals():
+	if debugMode:
 		gameCount = 1
 		printTurns = True
-		debugMode = True
 	else:
-		gameCount = 1
+		gameCount = 10
 		printTurns = False
-		debugMode = False
 
 	wins = 0
 	losses = 0
@@ -625,12 +458,14 @@ with open("C:\\Users\\jonny\\OneDrive\\Documents\\PiratesCode.log", 'w+') as log
 		print("Starting game", game + 1)
 		gameStart = time()
 		ship = Ship()
-		tileDeck = TileDeck()
+		tileDeck = TileDeck(debugMode=debugMode)
 		state = State(ship, tileDeck, StateType.Node, None, None)
+		tileOrder = []
 
 		# for tile in debugTileOrder:
 		while not tileDeck.Empty():
 			tile = tileDeck.GetRandomTile()
+			tileOrder.append(tile)
 
 			if printTurns:
 				print("Remaining tiles", tileDeck.tiles)
@@ -641,25 +476,24 @@ with open("C:\\Users\\jonny\\OneDrive\\Documents\\PiratesCode.log", 'w+') as log
 				logFile.write(f"Placing tile type {tile}\n")
 
 			turnStart = time()
-			# bestMove, value = AStar2(state, tile, currentBestValue=-inf, currentBestMove=None, depth=0, maxDepth=2)
-			# bestMove, value = AStar3(state, tile)
-			bestMove, value = AStar4(state, tile)
+			bestMove, value = AStarDepth2(state, tile)
 			if printTurns:
 				print(f"Visited {debugCounter} states")
 			if debugPrint:
 				logFile.write(f"Visited {debugCounter} states\n")
 			debugCounter = 0
 
-			if printTurns:
-				print(f"Best move {bestMove.tile} at ({bestMove.y}, {bestMove.x})")
 			if debugPrint:
 				logFile.write(f"Best move: {bestMove}\n")
 			if bestMove is None:
 				print("I think we lost :(")
 				print("Tile we can't place", tile)
+				print("Tile order was", tileOrder)
 				state.ship.Print(stdout=True)
 				losses += 1
 				break
+			if printTurns:
+				print(f"Best move {bestMove.tile} at ({bestMove.y}, {bestMove.x})")
 
 			state.ship.PlaceTile(bestMove.tile, bestMove.y, bestMove.x)
 			state.children = []
@@ -678,5 +512,5 @@ with open("C:\\Users\\jonny\\OneDrive\\Documents\\PiratesCode.log", 'w+') as log
 				print("Wavefront distance is", state.ship.GetMaxDistanceWavefront())
 				wins += 1
 				break
-	winPercentage = 100 if losses == 0 else wins / losses
-	print(f"Win Percentage: {winPercentage}%")
+
+	print(f"Win Percentage: {(wins / gameCount) * 100.0}%")
