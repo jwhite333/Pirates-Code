@@ -7,6 +7,7 @@ from copy import deepcopy
 debugPrint = False
 debugCounter = 0
 debugMode = False
+logFile = None
 
 class TileType:
 
@@ -379,11 +380,6 @@ class State:
 
 		# Collective value
 		return ((20 - tilesLeft) * availableLocations * playableTilesMultiplier) - ((wavefrontDistance + emptyTiles / 4) ** 2)
-		
-		# value = ((1000 - tilesLeft) * playableTilesMultiplier) # - ((wavefrontDistance + (emptyTiles)) * 2)
-		
-		# print(f"State Value Calculation: (1000 - {tilesLeft}) * {playableTilesMultiplier}", end="")
-		return value
 
 def AStarDepth2(state, tileType):
 	global debugCounter
@@ -397,8 +393,6 @@ def AStarDepth2(state, tileType):
 	childStates  = state.GetChildren([tileType])
 	for childState in childStates:
 
-		# print("Checking child state")
-		# childState.ship.Print(stdout=True)
 		grandchildrenValue = 0
 		grandchildrenStates = childState.GetChildren(None)
 		if childState.type == StateType.Win:
@@ -408,109 +402,138 @@ def AStarDepth2(state, tileType):
 		else:
 			for grandchildState in grandchildrenStates:
 
-				# print("Checking grandchild state")
-				# grandchildState.ship.Print(stdout=True)
 				if grandchildState.type == StateType.Win:
 					greatGrandchildValue = 1000
 				if grandchildState.type == StateType.Loss:
 					greatGrandchildValue = -1000
 				else:
 					greatGrandchildValue = (1.0 / len(grandchildrenStates)) * grandchildState.ComputeStateValue()
-				grandchildrenValue += greatGrandchildValue # (1.0 / len(grandchildrenStates)) * grandchildState.ComputeStateValue()
-				# print(f" * 1 / {len(grandchildrenStates)} = {greatGrandchildValue}")
+				grandchildrenValue += greatGrandchildValue
 
 			childValue = (1.0 / len(childStates)) * grandchildrenValue
-		# print(f"Child Value = 1 / {len(childStates)} * {grandchildrenValue} = {childValue}")
 		if childValue > bestChildValue:
 			bestChildValue = childValue
 			bestMove = childState.move
 
 	return (bestMove, bestChildValue)
 
-
-# ship = Ship()
-# ship.PlaceTile(4, 1, 0)
-# ship.PlaceTile(1, 1, 5)
-# ship.Print(stdout=True)
-# tileDeck = TileDeck(debugMode=False)
-# state = State(ship, tileDeck, StateType.Node, None, None)
-# move, cost = AStarDepth2(state, tileType=TileType.DeadEnd)
-# print(f"Best move {move.tile} at ({move.y}, {move.x})")
-# state.ship.PlaceTile(move.tile, move.y, move.x)
-# state.ship.Print(stdout=True)
-# exit(0)
+def AutomaticMode():
+	with open("C:\\Users\\jonny\\OneDrive\\Documents\\PiratesCode.log", 'w+') as logFile:
 
 
-with open("C:\\Users\\jonny\\OneDrive\\Documents\\PiratesCode.log", 'w+') as logFile:
+		if debugMode:
+			gameCount = 1
+			printTurns = True
+		else:
+			gameCount = 10
+			printTurns = False
+
+		wins = 0
+		losses = 0
+		for game in range(gameCount):
+
+			print("Starting game", game + 1)
+			gameStart = time()
+			ship = Ship()
+			tileDeck = TileDeck(debugMode=debugMode)
+			state = State(ship, tileDeck, StateType.Node, None, None)
+			tileOrder = []
+
+			# for tile in debugTileOrder:
+			while not tileDeck.Empty():
+				tile = tileDeck.GetRandomTile()
+				tileOrder.append(tile)
+
+				if printTurns:
+					print("Remaining tiles", tileDeck.tiles)
+
+				if printTurns:
+					print("Placing tile type", tile)
+				if debugPrint:
+					logFile.write(f"Placing tile type {tile}\n")
+
+				turnStart = time()
+				bestMove, value = AStarDepth2(state, tile)
+				if printTurns:
+					print(f"Visited {debugCounter} states")
+				if debugPrint:
+					logFile.write(f"Visited {debugCounter} states\n")
+				debugCounter = 0
+
+				if debugPrint:
+					logFile.write(f"Best move: {bestMove}\n")
+				if bestMove is None:
+					print("I think we lost :(")
+					print("Tile we can't place", tile)
+					print("Tile order was", tileOrder)
+					state.ship.Print(stdout=True)
+					losses += 1
+					break
+				if printTurns:
+					print(f"Best move {bestMove.tile} at ({bestMove.y}, {bestMove.x})")
+
+				state.ship.PlaceTile(bestMove.tile, bestMove.y, bestMove.x)
+				state.children = []
+				if printTurns:
+					state.ship.Print(stdout=True)
+				state.tileDeck.PopTile(tile)
+				if printTurns:
+					print("Turn duration:", time() - turnStart)
+				if debugPrint:
+					logFile.write(f"Turn duration: {time() - turnStart}\n")
+
+				if tileDeck.Empty():
+					state.ship.Print(stdout=True)
+					print(f"Victory! (time = {time() - gameStart}s)")
+					print("Start point is ", state.ship.start)
+					print("Wavefront distance is", state.ship.GetMaxDistanceWavefront())
+					wins += 1
+					break
+
+		print(f"Win Percentage: {(wins / gameCount) * 100.0}%")
+
+def ManualMode():
+	ship = Ship()
+	tileDeck = TileDeck(debugMode=False)
+	state = State(ship, tileDeck, StateType.Node, None, None)
+	tileOrder = []
+
+	while not tileDeck.Empty():
+
+		displayShip = Ship()
+		displayShip.ship = [[]]
+		possibleTileTypes = tileDeck.GetPossibleTilesTypes()
+		selectionMap = {}
+		for index, possibleTileType in enumerate(possibleTileTypes):
+			tile = displayShip.ConvertTileTypeToTile(possibleTileType)
+			displayShip.PlaceTile(tile, 1, len(displayShip.ship[0]) + 1)
+			selectionMap[index + 1] = possibleTileType
+		print("Current Ship")
+		displayShip.Print(stdout=True)
+		tileSelection = input(f"Enter your tile number (1 - {len(possibleTileTypes)}): ")
+		tileType = selectionMap[int(tileSelection)]
+		tileOrder.append(tileType)
+		bestMove, value = AStarDepth2(state, tileType)
+
+		if bestMove is None:
+			print("I think we lost :(")
+			print("Tile we can't place", tileType)
+			print("Tile order was", tileOrder)
+			state.ship.Print(stdout=True)
+			break
+		print(f"Best move {bestMove.tile} at ({bestMove.y}, {bestMove.x})")
+
+		state.ship.PlaceTile(bestMove.tile, bestMove.y, bestMove.x)
+		state.children = []
+		state.ship.Print(stdout=True)
+		state.tileDeck.PopTile(tileType)
+
+		if tileDeck.Empty():
+			state.ship.Print(stdout=True)
+			print(f"Victory!")
+			break
 
 
-	if debugMode:
-		gameCount = 1
-		printTurns = True
-	else:
-		gameCount = 10
-		printTurns = False
-
-	wins = 0
-	losses = 0
-	for game in range(gameCount):
-
-		print("Starting game", game + 1)
-		gameStart = time()
-		ship = Ship()
-		tileDeck = TileDeck(debugMode=debugMode)
-		state = State(ship, tileDeck, StateType.Node, None, None)
-		tileOrder = []
-
-		# for tile in debugTileOrder:
-		while not tileDeck.Empty():
-			tile = tileDeck.GetRandomTile()
-			tileOrder.append(tile)
-
-			if printTurns:
-				print("Remaining tiles", tileDeck.tiles)
-
-			if printTurns:
-				print("Placing tile type", tile)
-			if debugPrint:
-				logFile.write(f"Placing tile type {tile}\n")
-
-			turnStart = time()
-			bestMove, value = AStarDepth2(state, tile)
-			if printTurns:
-				print(f"Visited {debugCounter} states")
-			if debugPrint:
-				logFile.write(f"Visited {debugCounter} states\n")
-			debugCounter = 0
-
-			if debugPrint:
-				logFile.write(f"Best move: {bestMove}\n")
-			if bestMove is None:
-				print("I think we lost :(")
-				print("Tile we can't place", tile)
-				print("Tile order was", tileOrder)
-				state.ship.Print(stdout=True)
-				losses += 1
-				break
-			if printTurns:
-				print(f"Best move {bestMove.tile} at ({bestMove.y}, {bestMove.x})")
-
-			state.ship.PlaceTile(bestMove.tile, bestMove.y, bestMove.x)
-			state.children = []
-			if printTurns:
-				state.ship.Print(stdout=True)
-			state.tileDeck.PopTile(tile)
-			if printTurns:
-				print("Turn duration:", time() - turnStart)
-			if debugPrint:
-				logFile.write(f"Turn duration: {time() - turnStart}\n")
-
-			if tileDeck.Empty():
-				state.ship.Print(stdout=True)
-				print(f"Victory! (time = {time() - gameStart}s)")
-				print("Start point is ", state.ship.start)
-				print("Wavefront distance is", state.ship.GetMaxDistanceWavefront())
-				wins += 1
-				break
-
-	print(f"Win Percentage: {(wins / gameCount) * 100.0}%")
+if __name__ == "__main__":
+	# AutomaticMode()
+	ManualMode()
