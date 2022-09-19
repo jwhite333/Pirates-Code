@@ -508,7 +508,7 @@ def ManualMode():
 			tile = displayShip.ConvertTileTypeToTile(possibleTileType)
 			displayShip.PlaceTile(tile, 1, len(displayShip.ship[0]) + 1)
 			selectionMap[index + 1] = possibleTileType
-		print("Current Ship")
+		print("Tile Options")
 		displayShip.Print(stdout=True)
 		tileSelection = input(f"Enter your tile number (1 - {len(possibleTileTypes)}): ")
 		tileType = selectionMap[int(tileSelection)]
@@ -521,7 +521,7 @@ def ManualMode():
 			print("Tile order was", tileOrder)
 			state.ship.Print(stdout=True)
 			break
-		print(f"Best move {bestMove.tile} at ({bestMove.y}, {bestMove.x})")
+		print(f"Best move at ({bestMove.y}, {bestMove.x})")
 
 		state.ship.PlaceTile(bestMove.tile, bestMove.y, bestMove.x)
 		state.children = []
