@@ -72,9 +72,15 @@ if __name__ == "__main__":
                 facing = facing[:-1]
             print(f"Playable locations for {name} with orientation {orientedTile} (facing {facing}): {ship.GetPlayableLocationsForTile(orientedTile)}")
 
-    print("\n\nCheckking ship tile placement")
+    print("\n\nChecking ship tile placement")
     ship.ship = [[7, 7, 7]]
     for tile, y, x in [(6, 0, -1), (1, 0, 4), (15, 1, 2)]:
         print(f"Placing tile {tile} at ({y}, {x})")
         ship.PlaceTile(tile, y, x)
         ship.Print(stdout=True)
+
+    print("\n\nChecking negative tiles")
+    ship.ship = [[23, 7, 7]]
+    ship.Print(stdout=True)
+    locations = ship.GetAvailableShipLocations()
+    print("Available locations:", locations)
