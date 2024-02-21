@@ -19,7 +19,6 @@ class Logger(object):
 			STDOUT.write(message)
 
 logger = Logger(stdout=True, logFile=True)
-debugMode = False
 
 class Coords:
 	North = 8
@@ -71,8 +70,8 @@ class TileDeck:
 		# self.debugTiles = [Tile.DeadEnd, Tile.DeadEnd, Tile.DeadEnd, Tile.Quad]
 		# self.debugTiles = [Tile.Corner, Tile.Corner, Tile.Corner, Tile.DeadEnd, Tile.DeadEnd]
 		# self.debugTiles = [Tile.Corner, Tile.Corner, Tile.Corner, Tile.Corner, Tile.DeadEnd, Tile.DeadEnd, Tile.DeadEnd, Tile.Quad]
-		# self.debugTiles = [Tile.Corner, Tile.Corner, Tile.Corner, Tile.Corner, Tile.DeadEnd, Tile.DeadEnd, Tile.DeadEnd, Tile.Quad]
-		self.debugTiles = [1, 4, 1, 0, 1, 4, 4, 1, 3, 3, 3, 3, 3, 2, 0, 3, 0, 3, 3, 4] # = 11
+		self.debugTiles = [Tile.Corner, Tile.Corner, Tile.Corner, Tile.Corner, Tile.DeadEnd, Tile.DeadEnd, Tile.DeadEnd, Tile.Quad]
+		# self.debugTiles = [1, 4, 1, 0, 1, 4, 4, 1, 3, 3, 3, 3, 3, 2, 0, 3, 0, 3, 3, 4] # = 11
 		# self.debugTiles = [3, 3, 1, 3, 3, 3, 3, 0, 0, 3, 2, 4, 1, 0, 1, 1, 3, 4, 4, 4] # = 7 but spread out
 		# self.debugTiles = [1, 1, 3, 3, 3, 0, 2, 3, 3, 0, 1, 3, 3, 0, 4, 4, 3, 4, 4, 1] # = 9
 		# self.debugTiles = [3, 1, 2, 1, 3, 4, 1, 3, 4, 3, 3, 0, 4, 0, 4, 0, 3, 1, 3, 3] # = 6 (ok)
@@ -316,13 +315,14 @@ def AStar(state, maxDepth, depth=1):
 		debugCounter += 1
 		return state.ComputeStateValue()
 
+debugMode = False
 if __name__ == "__main__":
 	global debugCounter
 
-	gameType = "automatic"
-	# gameType = "manual"
+	# gameType = "automatic"
+	gameType = "manual"
 
-	if debugMode:
+	if debugMode or gameType == "manual":
 		gameCount = 1
 		printTurns = True
 	else:
@@ -345,7 +345,7 @@ if __name__ == "__main__":
 		tileOrder = []
 
 		while not tileDeck.Empty():
-			if printTurns or gameType == "manual":
+			if printTurns:
 				state.ship.Print(stdout=True)
 			if gameType == "automatic":
 				tile = tileDeck.GetRandomTile()
@@ -385,7 +385,7 @@ if __name__ == "__main__":
 			childStates = state.GetChildren([tile])
 			debugCounter = 0
 			for childState in childStates:
-				value = AStar(childState, 2)
+				value = AStar(childState, maxDepth=2)
 				if value > bestMoveValue:
 					bestMove = childState.move
 					bestMoveValue = value
