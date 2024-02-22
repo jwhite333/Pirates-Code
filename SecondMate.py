@@ -282,7 +282,7 @@ class State:
 
 	def ComputeStateValue(self):
 		if self.type == StateType.Loss:
-			return -1000
+			return -1300
 		remainingTileTypes = self.tileDeck.GetPossibleTilesTypes()
 		playableTilesScore = 100.0
 		if len(remainingTileTypes):
